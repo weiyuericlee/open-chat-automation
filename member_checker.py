@@ -151,14 +151,18 @@ def validate_members(members, valid_members):
     print("Validation completed")
     print("\n---")
 
+    total = len(valid_members)
+    exact = len(valid_members)-len(remain_valid)
+    fuzzy = len(fuzzy_pairs)
     print("\nValidated data:")
-    print(f"  Total: {len(valid_members)}")
-    print(f"  Exact: {len(valid_members)-len(remain_valid)}")
-    print(f"  Fuzzy: {len(fuzzy_pairs)}")
+    print(f"  Total: {total}")
+    print(f"  Exact: {exact}")
+    print(f"  Fuzzy: {fuzzy}")
     for pair in sorted(fuzzy_pairs, key=lambda x: x[2], reverse=True):
         print(f"    {pair[0]:<15}\t/\t{pair[1]:<17}\tscore: {pair[2]:3d}")
 
     print("\nNon-validated data:")
+    print(f"  Remain: {total-exact-fuzzy}")
     print(f"  Valid:  {sorted(not_matched)}")
     print(f"  Member: {sorted(remain_members)}")
 
