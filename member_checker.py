@@ -29,7 +29,7 @@ SCROLL_TICKS = 3
 SCROLL_SLEEP = 0.3
 SCREENSHOT_SLEEP = 1
 MAX_SCREENSHOTS = 20
-FUZZY_THRESHOLD = 70
+FUZZY_THRESHOLD = 75
 IGNORE_MEMBERS = {'', '管理員1', '管理員2'}
 MEMBERS_API = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTixPZ1SIc1duIOOeMCF8a8x753GXLDzCAuVXRpSXQ9mtJQcb3tnSbJkLC38KdM6OXohcGLQMtRAZg3/pub?gid=620929327&single=true&output=csv'
 
@@ -143,7 +143,7 @@ def validate_members(members, valid_members):
             if len(best_match) != 2 or score > best_match[1]:
                 best_match = [member, score]
 
-        if best_match[1] > FUZZY_THRESHOLD:
+        if best_match[1] >= FUZZY_THRESHOLD:
             fuzzy_pairs.append((valid, best_match[0], best_match[1]))
             remain_members.remove(best_match[0])
         else:
@@ -151,18 +151,14 @@ def validate_members(members, valid_members):
     print("Validation completed")
     print("\n---")
 
-    total = len(valid_members)
-    exact = len(valid_members)-len(remain_valid)
-    fuzzy = len(fuzzy_pairs)
     print("\nValidated data:")
-    print(f"  Total: {total}")
-    print(f"  Exact: {exact}")
-    print(f"  Fuzzy: {fuzzy}")
+    print(f"  Total: {len(valid_members)}")
+    print(f"  Exact: {len(valid_members)-len(remain_valid)}")
+    print(f"  Fuzzy: {len(fuzzy_pairs)}")
     for pair in sorted(fuzzy_pairs, key=lambda x: x[2], reverse=True):
         print(f"    {pair[0]:<15}\t/\t{pair[1]:<17}\tscore: {pair[2]:3d}")
 
     print("\nNon-validated data:")
-    print(f"  Remain: {total-exact-fuzzy}")
     print(f"  Valid:  {sorted(not_matched)}")
     print(f"  Member: {sorted(remain_members)}")
 
