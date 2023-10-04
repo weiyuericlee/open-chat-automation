@@ -160,7 +160,7 @@ def process_screenshots(screenshots):
         data = ts.image_to_boxes(
             preprocessed,
             lang='eng+chi_tra',
-            config=f'--psm 6 configfile {TESSERACT_CONF}',
+            config=r'--psm 6 -c tessedit_char_blacklist=£€¢!@#$%^&*()[]{}_+=/\\:;~',
         )
         text_centers = parse_text_center(data, preprocessed.shape[:2])
         for idx, center in enumerate(text_centers):
@@ -173,10 +173,10 @@ def process_screenshots(screenshots):
         parsed = ts.image_to_string(
             image,
             lang='eng+chi_tra',
-            config=f'--psm 7 configfile {TESSERACT_CONF}',
+            config=r'--psm 8 -c tessedit_char_blacklist=£€¢!@#$%^&*()[]{}_+=/\\:;~',
         )
         name = parsed.replace(' ', '').replace('\n', '')
-        cv2.imwrite(os.path.join(export_path, f"{name}.jpg"), image)
+        cv2.imwrite(os.path.join(export_path, f"{name}.png"), image)
         member_list.append(name)
     print("Member list parsed from screenshot\n")
     return set(member_list)-IGNORE_MEMBERS
