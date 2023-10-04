@@ -23,8 +23,13 @@ from thefuzz import fuzz
 
 # Constants
 WINDOW_NAME = 'LINE'
-WINDOW_SIZE = (288, 512)        # (504, 896)
-WINDOW_CROP = (60, 65, 3, 3)    # (100, 110, 5, 5)
+# Setting 1
+# WINDOW_SIZE = (288, 512)
+# WINDOW_CROP = (60, 65, 3, 3)
+# Setting 2
+WINDOW_SIZE = (504, 896)
+WINDOW_CROP = (100, 110, 5, 5)
+
 SCROLL_TICKS = 3
 SCROLL_SLEEP = 0.3
 SCREENSHOT_SLEEP = 1
