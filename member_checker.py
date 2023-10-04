@@ -160,11 +160,12 @@ def process_screenshots(screenshots):
         data = ts.image_to_boxes(
             preprocessed,
             lang='eng+chi_tra',
-            config=r'--psm 6 -c tessedit_char_blacklist=£€¢!@#$%^&*()[]{}_+=/\\:;~',
+            config=r'--psm 6 -c tessedit_char_blacklist=£€¢!@#$%^&*()[]{}_+=/\\:;~\"',
         )
         text_centers = parse_text_center(data, preprocessed.shape[:2])
         for idx, center in enumerate(text_centers):
             name_images.append(preprocessed[center-TEXT_VERT[0]:center+TEXT_VERT[1], :])
+    print(f"Total {len(name_images)} names extracted")
 
     member_list = []
     for idx, image in enumerate(name_images):
@@ -173,10 +174,10 @@ def process_screenshots(screenshots):
         parsed = ts.image_to_string(
             image,
             lang='eng+chi_tra',
-            config=r'--psm 8 -c tessedit_char_blacklist=£€¢!@#$%^&*()[]{}_+=/\\:;~',
+            config=r'--psm 7 -c tessedit_char_blacklist=£€¢!@#$%^&*()[]{}_+=/\\:;~\"',
         )
         name = parsed.replace(' ', '').replace('\n', '')
-        cv2.imwrite(os.path.join(export_path, f"{name}.png"), image)
+        cv2.imwrite(os.path.join(export_path, f"{name}.bmp"), image)
         member_list.append(name)
     print("Member list parsed from screenshot\n")
     return set(member_list)-IGNORE_MEMBERS
