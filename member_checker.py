@@ -5,9 +5,9 @@
 # version       : 1.0.0
 ####################################################################################
 
+import os
 import cv2
 import time
-import requests
 
 import numpy as np
 import pandas as pd
@@ -20,26 +20,35 @@ import pyautogui as ag
 import pytesseract as ts
 
 from thefuzz import fuzz
+from datetime import datetime as dt
 
 # Constants
 WINDOW_NAME = 'LINE'
 # Setting 1
 # WINDOW_SIZE = (288, 512)
-# WINDOW_CROP = (60, 65, 3, 3)
+# WINDOW_CROP = (60, 65, 90, 3)
 # Setting 2
 WINDOW_SIZE = (504, 896)
-WINDOW_CROP = (100, 110, 5, 5)
+WINDOW_CROP = (100, 110, 150, 5)
 
 SCROLL_TICKS = 3
 SCROLL_SLEEP = 0.3
 SCREENSHOT_SLEEP = 1
 MAX_SCREENSHOTS = 20
+
+TEXT_VERT = [30, 55]
+COUNT_THRESHOLD = 5
+VALIDATE_KEY = '用戶名'
 FUZZY_THRESHOLD = 75
-IGNORE_MEMBERS = {'', '管理員1', '管理員2'}
+
+IGNORE_MEMBERS = {'管理員1', '管理員2'}
 MEMBERS_API = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTixPZ1SIc1duIOOeMCF8a8x753GXLDzCAuVXRpSXQ9mtJQcb3tnSbJkLC38KdM6OXohcGLQMtRAZg3/pub?gid=620929327&single=true&output=csv'
+EXPORT_ROOT = '.\\export\\'
+TESSERACT_PATH = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
+TESSERACT_CONF = '.\\tesseract.conf'
 
 # Settings
-ts.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+ts.pytesseract.tesseract_cmd = TESSERACT_PATH
 
 
 def win_enum_handler(hwnd, coord_handler):
@@ -56,6 +65,37 @@ def win_enum_handler(hwnd, coord_handler):
             ],
         }
 
+def get_hotspots(data, gap_threshold, count_threshold):
+    previous = -99999
+    groups = []
+    for entry in sorted(data):
+        if entry - previous <= gap_threshold/2:
+            groups[-1].append(entry)
+        else:
+            groups.append([entry])
+        previous = entry
+    hotspots = []
+    for group in groups:
+        if len(group) >= count_threshold:
+            hotspots.append(int(np.quantile(group, [0.75])[0]))
+    return hotspots
+
+def parse_text_center(data, shape):
+    box_coord = []
+    for entry in data.split('\n'):
+        if entry:
+            elements = entry.split(' ')
+            box_coord.append({
+                'key': elements[0],
+                'rect': [
+                    int(elements[1]),
+                    shape[0] - int(elements[4]),
+                    int(elements[3]),
+                    shape[0] - int(elements[2]),
+                ],
+            })
+    filtered_coord = map(lambda x: x['rect'][1], filter(lambda x: x['key'] != '-', box_coord))
+    return get_hotspots(filtered_coord, sum(TEXT_VERT), COUNT_THRESHOLD)
 
 def capture_screenshots():
     print("\nStart finding target window")
@@ -101,27 +141,43 @@ def capture_screenshots():
     return target_images
 
 def process_screenshots(screenshots):
-    member_list = []
     print("Performing OCR on the screenshots")
+    # Prepare export folder
+    folder_name = dt.now().strftime('%Y%m%d_%H%M%S')
+    print(f"  Preparing export folder {folder_name}")
+    export_path = os.path.join(EXPORT_ROOT, folder_name)
+    os.mkdir(export_path)
 
+    name_images = []
     for idx, image in enumerate(screenshots):
         # Convert to grayscale
-        print(f"  Processing screenshot {idx+1:02d}")
+        print(f"  Extracting screenshot {idx+1:02d}")
         image_size = image.size
         preprocessed = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
         preprocessed = cv2.resize(preprocessed, list(map(lambda x: x*2, image_size)), interpolation=cv2.INTER_LANCZOS4)
-        # cv2.imshow('pic', preprocessed)
-        # cv2.waitKey(0)
 
         # Perform text extraction
-        data = ts.image_to_string(
+        data = ts.image_to_boxes(
             preprocessed,
             lang='eng+chi_tra',
-            config=r'--psm 6 configfile ./tesseract.conf',
+            config=f'--psm 6 configfile {TESSERACT_CONF}',
         )
-        # print(data)
-        member_list.extend(map(lambda x: x.replace(' ', ''), data.split('\n')))
+        text_centers = parse_text_center(data, preprocessed.shape[:2])
+        for idx, center in enumerate(text_centers):
+            name_images.append(preprocessed[center-TEXT_VERT[0]:center+TEXT_VERT[1], :])
 
+    member_list = []
+    for idx, image in enumerate(name_images):
+        if idx%20 == 0:
+            print(f"  Processing name {idx+1:03d} - {idx+20:03d}")
+        parsed = ts.image_to_string(
+            image,
+            lang='eng+chi_tra',
+            config=f'--psm 7 configfile {TESSERACT_CONF}',
+        )
+        name = parsed.replace(' ', '').replace('\n', '')
+        cv2.imwrite(os.path.join(export_path, f"{name}.jpg"), image)
+        member_list.append(name)
     print("Member list parsed from screenshot\n")
     return set(member_list)-IGNORE_MEMBERS
 
@@ -129,7 +185,7 @@ def fetch_members():
     print("Start fetching valid members")
     member_csv = pd.read_csv(MEMBERS_API)
     print("Valid members fetched\n")
-    return set(member_csv['用戶名'].values.tolist())
+    return set(member_csv[VALIDATE_KEY].values.tolist())
 
 def validate_members(members, valid_members):
     # Remove identical members
