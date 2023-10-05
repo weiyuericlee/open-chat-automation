@@ -146,12 +146,6 @@ def capture_screenshots():
 
 def process_screenshots(screenshots):
     print("Performing OCR on the screenshots")
-    # Prepare export folder
-    folder_name = dt.now().strftime('%Y%m%d_%H%M%S')
-    print(f"  Preparing export folder {folder_name}")
-    export_path = os.path.join(EXPORT_ROOT, folder_name)
-    os.mkdir(export_path)
-
     name_images = []
     for idx, image in enumerate(screenshots):
         # Convert to grayscale
@@ -172,6 +166,7 @@ def process_screenshots(screenshots):
     print(f"Total {len(name_images)} names extracted")
 
     member_list = []
+    member_images = {}
     for idx, image in enumerate(name_images):
         if idx%20 == 0:
             print(f"  Processing name {idx+1:03d} - {idx+20:03d}")
@@ -181,11 +176,14 @@ def process_screenshots(screenshots):
             config=r'--psm 7 -c tessedit_char_blacklist=£€¢!@#$%^&*()[]{}_+=/\\:;~\"',
         )
         parsed = re.sub(CHAR_BLACKLIST, '', parsed)
-        cv2.imencode(EXPORT_TYPE, image)[1].tofile(os.path.join(export_path, f"{parsed}{EXPORT_TYPE}"))
+        member_images[parsed] = cv2.imencode(EXPORT_TYPE, image)[1]
         member_list.append(parsed)
     member_set = set(member_list)-IGNORE_MEMBERS
-    print(f"Total {len(member_set)} parsed from screenshot\n")
-    return member_set
+    print(f"Total {len(member_set)} members parsed from screenshots\n")
+    return {
+        'members': member_set,
+        'images': member_images,
+    }
 
 def fetch_members():
     print("Start fetching valid members")
@@ -196,9 +194,10 @@ def fetch_members():
 def validate_members(members, valid_members):
     # Remove identical members
     print("Start validating members")
-    remain_members = members - valid_members
-    remain_valid = valid_members - members
     print("  Performing exact check")
+    exact_matches = members['members'].intersection(valid_members)
+    remain_members = members['members'] - valid_members
+    remain_valid = valid_members - members['members']
 
     print("  Performing fuzzy check")
     fuzzy_pairs = []
@@ -213,21 +212,45 @@ def validate_members(members, valid_members):
         if best_match[1] >= FUZZY_THRESHOLD:
             fuzzy_pairs.append((valid, best_match[0], best_match[1]))
             remain_members.remove(best_match[0])
+            # member_images[member]
         else:
             not_matched.append(valid)
+
+    print("  Exporting non-validated images")
+    # Prepare export folder
+    folder_name = dt.now().strftime('%Y%m%d_%H%M%S')
+
+    member_images = members['images']
+    export_path = os.path.join(EXPORT_ROOT, folder_name)
+    fuzzy_path = os.path.join(export_path, 'fuzzy')
+    remain_path = os.path.join(export_path, 'remain')
+    os.mkdir(export_path)
+    os.mkdir(fuzzy_path)
+    os.mkdir(remain_path)
+    for pair in fuzzy_pairs:
+        member_images[pair[1]].tofile(os.path.join(fuzzy_path, f"{pair[2]:02d}_{pair[1]}_{pair[0]}{EXPORT_TYPE}"))
+    for member in remain_members:
+        member_images[member].tofile(os.path.join(remain_path, f"{member}{EXPORT_TYPE}"))
+
     print("Validation completed")
     print("\n---")
 
     print("\nValidated data:")
     print(f"  Total: {len(valid_members)}")
-    print(f"  Exact: {len(valid_members)-len(remain_valid)}")
+    print(f"  Exact: {len(exact_matches)}")
+    for member in sorted(exact_matches):
+        print(f"    {member}")
     print(f"  Fuzzy: {len(fuzzy_pairs)}")
     for pair in sorted(fuzzy_pairs, key=lambda x: x[2], reverse=True):
-        print(f"    {pair[0]:<15}\t/\t{pair[1]:<17}\tscore: {pair[2]:3d}")
+        print(f"    {pair[0]:<15}\t/\t{pair[1]:<17}\tscore: {pair[2]:02d}")
 
     print("\nNon-validated data:")
-    print(f"  Valid:  {sorted(not_matched)}")
-    print(f"  Member: {sorted(remain_members)}")
+    print(f"  Valid:  {len(not_matched)}")
+    for member in sorted(not_matched):
+        print(f"    {member}")
+    print(f"  Remain: {len(remain_members)}")
+    for member in sorted(remain_members):
+        print(f"    {member}")
 
 
 if __name__ == '__main__':
