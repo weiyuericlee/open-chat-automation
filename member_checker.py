@@ -6,6 +6,7 @@
 ####################################################################################
 
 import os
+import re
 import cv2
 import time
 
@@ -27,23 +28,26 @@ WINDOW_NAME = 'LINE'
 # Setting 1
 # WINDOW_SIZE = (288, 512)
 # WINDOW_CROP = (60, 65, 90, 3)
+# TEXT_VERT = [15, 30]
 # Setting 2
 WINDOW_SIZE = (504, 896)
 WINDOW_CROP = (100, 110, 150, 5)
+TEXT_VERT = [30, 55]
 
 SCROLL_TICKS = 3
 SCROLL_SLEEP = 0.3
 SCREENSHOT_SLEEP = 1
 MAX_SCREENSHOTS = 20
 
-TEXT_VERT = [30, 55]
 COUNT_THRESHOLD = 5
 VALIDATE_KEY = '用戶名'
+CHAR_BLACKLIST = '[ \\n\\t\\/\\\\.*?:<>"|]'
 FUZZY_THRESHOLD = 75
 
 IGNORE_MEMBERS = {'管理員1', '管理員2'}
 MEMBERS_API = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTixPZ1SIc1duIOOeMCF8a8x753GXLDzCAuVXRpSXQ9mtJQcb3tnSbJkLC38KdM6OXohcGLQMtRAZg3/pub?gid=620929327&single=true&output=csv'
 EXPORT_ROOT = '.\\export\\'
+EXPORT_TYPE = '.png'
 TESSERACT_PATH = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
 TESSERACT_CONF = '.\\tesseract.conf'
 
@@ -176,9 +180,9 @@ def process_screenshots(screenshots):
             lang='eng+chi_tra',
             config=r'--psm 7 -c tessedit_char_blacklist=£€¢!@#$%^&*()[]{}_+=/\\:;~\"',
         )
-        name = parsed.replace(' ', '').replace('\n', '')
-        cv2.imwrite(os.path.join(export_path, f"{name}.bmp"), image)
-        member_list.append(name)
+        parsed = re.sub(CHAR_BLACKLIST, '', parsed)
+        cv2.imencode(EXPORT_TYPE, image)[1].tofile(os.path.join(export_path, f"{parsed}{EXPORT_TYPE}"))
+        member_list.append(parsed)
     print("Member list parsed from screenshot\n")
     return set(member_list)-IGNORE_MEMBERS
 
