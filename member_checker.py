@@ -183,8 +183,9 @@ def process_screenshots(screenshots):
         parsed = re.sub(CHAR_BLACKLIST, '', parsed)
         cv2.imencode(EXPORT_TYPE, image)[1].tofile(os.path.join(export_path, f"{parsed}{EXPORT_TYPE}"))
         member_list.append(parsed)
-    print("Member list parsed from screenshot\n")
-    return set(member_list)-IGNORE_MEMBERS
+    member_set = set(member_list)-IGNORE_MEMBERS
+    print(f"Total {len(member_set)} parsed from screenshot\n")
+    return member_set
 
 def fetch_members():
     print("Start fetching valid members")
