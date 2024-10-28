@@ -108,7 +108,7 @@ def capture_screenshots():
 
     target_coord = dict(filter(lambda x: x[1]['size'] == list(WINDOW_SIZE), app_coord.items()))
     if len(target_coord) != 1:
-        raise Exception(f"Failed to find the target window with given size: {WINDOW_SIZE}")
+        raise Exception(f"Failed to find the target window with given size: {WINDOW_SIZE}, possible window sizes: {[c[1]['size'] for c in app_coord.items()]}")
 
     # Focus on the target window
     target_handle = list(target_coord.keys())[0]
