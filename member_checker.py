@@ -34,8 +34,8 @@ WINDOW_SIZE = (504, 896)
 WINDOW_CROP = (100, 110, 150, 5)
 TEXT_VERT = [30, 55]
 
-SCROLL_TICKS = 3
-SCROLL_SLEEP = 0.3
+SCROLL_TICKS = 6
+SCROLL_SLEEP = 0.2
 SCREENSHOT_SLEEP = 1
 MAX_SCREENSHOTS = 20
 
@@ -140,7 +140,7 @@ def capture_screenshots():
         # Scroll down N ticks
         for _ in range(SCROLL_TICKS):
             time.sleep(SCROLL_SLEEP)
-            ag.scroll(-1)
+            ag.scroll(-100)
 
     return target_images
 
