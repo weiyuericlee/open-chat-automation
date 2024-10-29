@@ -42,14 +42,14 @@ MAX_SCREENSHOTS = 20
 COUNT_THRESHOLD = 4
 VALIDATE_KEY = '用戶名'
 CHAR_BLACKLIST = '[ \\n\\t\\/\\\\.*?:<>"|]'
-FUZZY_THRESHOLD = 75
+FUZZY_THRESHOLD = 50
 
 IGNORE_MEMBERS = {'管理員1', '管理員2'}
 MEMBERS_API = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTixPZ1SIc1duIOOeMCF8a8x753GXLDzCAuVXRpSXQ9mtJQcb3tnSbJkLC38KdM6OXohcGLQMtRAZg3/pub?gid=620929327&single=true&output=csv'
 EXPORT_ROOT = '.\\export\\'
 EXPORT_TYPE = '.png'
-TESSERACT_PATH = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
-TESSERACT_CONF = '.\\tesseract.conf'
+TESSERACT_PATH = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+TESSERACT_CONF = r'.\tesseract.conf'
 
 # Settings
 ts.pytesseract.tesseract_cmd = TESSERACT_PATH
@@ -69,6 +69,7 @@ def win_enum_handler(hwnd, coord_handler):
             ],
         }
 
+
 def get_hotspots(data, gap_threshold, count_threshold):
     previous = -99999
     groups = []
@@ -84,6 +85,7 @@ def get_hotspots(data, gap_threshold, count_threshold):
             hotspots.append(int(np.quantile(group, [0.75])[0]))
     return hotspots
 
+
 def parse_text_center(data, shape):
     box_coord = []
     for entry in data.split('\n'):
@@ -98,17 +100,21 @@ def parse_text_center(data, shape):
                     shape[0] - int(elements[2]),
                 ],
             })
-    filtered_coord = map(lambda x: x['rect'][1], filter(lambda x: x['key'] != '-', box_coord))
+    filtered_coord = map(lambda x: x['rect'][1], filter(
+        lambda x: x['key'] != '-', box_coord))
     return get_hotspots(filtered_coord, sum(TEXT_VERT), COUNT_THRESHOLD)
+
 
 def capture_screenshots():
     print("\nStart finding target window")
     app_coord = {}
     wg.EnumWindows(win_enum_handler, app_coord)
 
-    target_coord = dict(filter(lambda x: x[1]['size'] == list(WINDOW_SIZE), app_coord.items()))
+    target_coord = dict(
+        filter(lambda x: x[1]['size'] == list(WINDOW_SIZE), app_coord.items()))
     if len(target_coord) != 1:
-        raise Exception(f"Failed to find the target window with given size: {WINDOW_SIZE}, possible window sizes: {[c[1]['size'] for c in app_coord.items()]}")
+        raise Exception(
+            f"Failed to find the target window with given size: {WINDOW_SIZE}, possible window sizes: {[c[1]['size'] for c in app_coord.items()]}")
 
     # Focus on the target window
     target_handle = list(target_coord.keys())[0]
@@ -118,7 +124,8 @@ def capture_screenshots():
     target = list(target_coord.values())[0]
 
     # Move to the center of the target window
-    target_center = target['position'][0]+target['size'][0]/2, target['position'][1]+target['size'][1]/2
+    target_center = target['position'][0]+target['size'][0] / \
+        2, target['position'][1]+target['size'][1]/2
     ag.moveTo(*target_center, duration=0.2)
 
     target_images = []
@@ -144,6 +151,7 @@ def capture_screenshots():
 
     return target_images
 
+
 def process_screenshots(screenshots):
     print("Performing OCR on the screenshots")
     name_images = []
@@ -152,7 +160,8 @@ def process_screenshots(screenshots):
         print(f"  Extracting screenshot {idx+1:02d}")
         image_size = image.size
         preprocessed = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
-        preprocessed = cv2.resize(preprocessed, list(map(lambda x: x*2, image_size)), interpolation=cv2.INTER_LANCZOS4)
+        preprocessed = cv2.resize(preprocessed, list(
+            map(lambda x: x*2, image_size)), interpolation=cv2.INTER_LANCZOS4)
 
         # Perform text extraction
         data = ts.image_to_boxes(
@@ -162,13 +171,18 @@ def process_screenshots(screenshots):
         )
         text_centers = parse_text_center(data, preprocessed.shape[:2])
         for idx, center in enumerate(text_centers):
-            name_images.append(preprocessed[center-TEXT_VERT[0]:center+TEXT_VERT[1], :])
+            name_images.append(
+                preprocessed[center-TEXT_VERT[0]:center+TEXT_VERT[1], :])
+
+    # Filter edge images
+    name_images = list(filter(
+        lambda x: x.shape[0] == TEXT_VERT[0]+TEXT_VERT[1], name_images))
     print(f"Total {len(name_images)} names extracted")
 
     member_list = []
     member_images = {}
     for idx, image in enumerate(name_images):
-        if idx%20 == 0:
+        if idx % 20 == 0:
             print(f"  Processing name {idx+1:03d} - {idx+20:03d}")
         parsed = ts.image_to_string(
             image,
@@ -185,11 +199,13 @@ def process_screenshots(screenshots):
         'images': member_images,
     }
 
+
 def fetch_members():
     print("Start fetching valid members")
     member_csv = pd.read_csv(MEMBERS_API)
     print("Valid members fetched\n")
     return set(member_csv[VALIDATE_KEY].values.tolist())
+
 
 def validate_members(members, valid_members):
     # Remove identical members
@@ -228,9 +244,11 @@ def validate_members(members, valid_members):
     os.mkdir(fuzzy_path)
     os.mkdir(remain_path)
     for pair in fuzzy_pairs:
-        member_images[pair[1]].tofile(os.path.join(fuzzy_path, f"{pair[2]:02d}_{pair[1]}_{pair[0]}{EXPORT_TYPE}"))
+        member_images[pair[1]].tofile(os.path.join(
+            fuzzy_path, f"{pair[2]:02d}_{pair[1]}_{pair[0]}{EXPORT_TYPE}"))
     for member in remain_members:
-        member_images[member].tofile(os.path.join(remain_path, f"{member}{EXPORT_TYPE}"))
+        member_images[member].tofile(os.path.join(
+            remain_path, f"{member}{EXPORT_TYPE}"))
 
     print("Validation completed")
     print("\n---")
