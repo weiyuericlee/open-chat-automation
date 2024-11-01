@@ -31,7 +31,7 @@ WINDOW_NAME = 'LINE'
 # TEXT_VERT = [15, 30]
 # Setting 2
 WINDOW_SIZE = (504, 896)
-WINDOW_CROP = (100, 110, 150, 5)
+WINDOW_CROP = (100, 120, 150, 5)
 TEXT_VERT = [30, 55]
 
 SCROLL_TICKS = 6
@@ -61,6 +61,12 @@ def win_enum_handler(hwnd, coord_handler):
         coord_handler[hwnd] = {
             'position': [window_rec[0], window_rec[1]],
             'size': [window_rec[2]-window_rec[0], window_rec[3]-window_rec[1]],
+            'original': [
+                window_rec[0],
+                window_rec[1],
+                window_rec[2]-window_rec[0],
+                window_rec[3]-window_rec[1],
+            ],
             'cropped': [
                 window_rec[0]+WINDOW_CROP[0],
                 window_rec[1]+WINDOW_CROP[1],
@@ -105,7 +111,7 @@ def parse_text_center(data, shape):
     return get_hotspots(filtered_coord, sum(TEXT_VERT), COUNT_THRESHOLD)
 
 
-def capture_screenshots():
+def capture_screenshots(show=False):
     print("\nStart finding target window")
     app_coord = {}
     wg.EnumWindows(win_enum_handler, app_coord)
@@ -122,6 +128,15 @@ def capture_screenshots():
     wp.AttachThreadInput(wa.GetCurrentThreadId(), remote_thread, True)
     wg.SetFocus(target_handle)
     target = list(target_coord.values())[0]
+
+    # Show current cropped region
+    if show:
+        original_image = ag.screenshot(region=target['original'])
+        original_image = np.array(original_image)
+        cv2.rectangle(original_image, WINDOW_CROP[0:2], np.subtract(
+            target['size'], WINDOW_CROP[2:4]), (0, 0, 255), 3)
+        cv2.imshow('original', original_image)
+        cv2.waitKey(0)
 
     # Move to the center of the target window
     target_center = target['position'][0]+target['size'][0] / \
@@ -160,6 +175,7 @@ def process_screenshots(screenshots):
         print(f"  Extracting screenshot {idx+1:02d}")
         image_size = image.size
         preprocessed = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
+        preprocessed = cv2.bitwise_not(preprocessed)
         preprocessed = cv2.resize(preprocessed, list(
             map(lambda x: x*2, image_size)), interpolation=cv2.INTER_LANCZOS4)
 
@@ -272,7 +288,7 @@ def validate_members(members, valid_members):
 
 
 if __name__ == '__main__':
-    screenshots = capture_screenshots()
+    screenshots = capture_screenshots(show=False)
     members = process_screenshots(screenshots)
     valid_members = fetch_members()
     validate_members(members, valid_members)
